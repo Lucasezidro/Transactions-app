@@ -11,12 +11,20 @@ interface GetTransactionsResponse {
     createdAt: Date
     updatedAt: Date
   }[]
+  totalCount: number
 }
 
 export async function getTransactions(
   userId: string,
+  page: number = 1,
+  perPage: number = 6,
 ): Promise<GetTransactionsResponse> {
-  const result = await api.get(`/fetch/transactions/${userId}`)
+  const result = await api.get(`/fetch/transactions/${userId}`, {
+    params: {
+      page,
+      perPage,
+    },
+  })
 
   return result.data
 }

@@ -1,8 +1,6 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
 import {
   Dialog,
   DialogContent,
@@ -10,10 +8,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { z } from 'zod'
 import {
   Form,
   FormControl,
@@ -22,58 +16,79 @@ import {
   FormItem,
   FormLabel,
 } from '@/components/ui/form'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
+import { createBooking } from '@/services/bookings/create-booking'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { createTransaction } from '@/services/transactions/create-transaction'
-import { toast } from 'sonner'
+import dayjs from 'dayjs'
 import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { toast } from 'sonner'
+import { z } from 'zod'
 
-const createTransactionSchema = z.object({
-  transactionName: z.string(),
+const bookingsSchema = z.object({
+  title: z.string().min(1, { message: 'Titulo é obrigatório.' }),
   amount: z.coerce.number(),
-  description: z.string(),
   isIncome: z.boolean().default(false),
+  description: z
+    .string()
+    .min(5, { message: 'Dogite pelo menos 5 caracteres.' }),
+  endDate: z.coerce.date().transform((date) => {
+    return dayjs(date).utc().startOf('day').toDate()
+  }),
+  status: z
+    .enum(['schedulling', 'processing', 'finished'])
+    .default('schedulling'),
 })
 
-type CreateTransactionDataType = z.infer<typeof createTransactionSchema>
+type BookingFormData = z.infer<typeof bookingsSchema>
 
-interface CreateTransactionsProps {
+interface CreateBookingProps {
   userId: string
 }
 
-export function CreateTransaction({ userId }: CreateTransactionsProps) {
+export function CreateBooking({ userId }: CreateBookingProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const queryClient = useQueryClient()
-  const form = useForm<CreateTransactionDataType>({
-    resolver: zodResolver(createTransactionSchema),
+  const form = useForm<BookingFormData>({
+    resolver: zodResolver(bookingsSchema),
   })
 
-  const { mutateAsync: createTransactionFn, isPending } = useMutation({
-    mutationFn: createTransaction,
+  const { mutateAsync: createBookingFn } = useMutation({
+    mutationFn: createBooking,
     onSuccess: () => {
       queryClient.refetchQueries({
-        queryKey: [userId, 'transactions'],
+        queryKey: [userId, 'bookings'],
         type: 'active',
       })
     },
   })
 
-  async function handleCreateTransaction(data: CreateTransactionDataType) {
-    const { transactionName, amount, description, isIncome } = data
+  const today = dayjs().format('YYYY-MM-DD')
 
-    await createTransactionFn({
-      transactionName,
-      amount,
+  async function handleCreateBooking(data: BookingFormData) {
+    const { description, endDate, status, title, amount, isIncome } = data
+
+    const formattedEndDate = new Date(endDate).toISOString().split('T')[0]
+
+    await createBookingFn({
+      title,
       description,
+      amount,
       isIncome,
+      endDate: new Date(formattedEndDate),
+      status: status ?? 'schedulling',
       userId,
     })
       .then(() => {
-        toast.success('Transação cadastrada com sucesso!')
+        toast.success('Agendamento cadastrado com sucesso!')
       })
       .catch(() => {
         toast.error(
-          'Houve um erro ao cadastrar a transação, por favor tente novamente mais tarde.',
+          'Houve um erro ao cadastrar o agendamento, por favor tente novamente mais tarde.',
         )
       })
       .finally(() => setIsModalOpen(false))
@@ -84,30 +99,32 @@ export function CreateTransaction({ userId }: CreateTransactionsProps) {
       <DialogTrigger asChild>
         <Button
           onClick={() => setIsModalOpen(true)}
-          variant="ghost"
-          className="w-full"
+          variant="secondary"
+          className="max-w-[680px] w-full"
         >
-          Adicionar transação
+          Cadastrar agendamento
         </Button>
       </DialogTrigger>
       <DialogContent>
-        <DialogHeader className="mb-8">
-          <DialogTitle>Adicionar nova transação</DialogTitle>
+        <DialogHeader>
+          <DialogTitle>Cadastre um novo agendamento</DialogTitle>
         </DialogHeader>
-
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit(handleCreateTransaction)}
-            className="flex flex-col justify-between gap-4"
+            onSubmit={form.handleSubmit(handleCreateBooking)}
+            className="flex flex-col gap-4 mt-4"
           >
-            <Label>Nome da transação</Label>
-            <Input {...form.register('transactionName')} />
+            <Label>Titulo</Label>
+            <Input {...form.register('title')} />
+
+            <Label>Data da entrega</Label>
+            <Input {...form.register('endDate')} type="date" min={today} />
 
             <Label>Valor</Label>
             <div className="flex items-center gap-2 h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm">
               <span className="text-muted-foreground text-sm">R$</span>
               <input
-                className="border-0 outline-none bg-transparent w-full"
+                className="border-0 outline- bg-transparent"
                 {...form.register('amount')}
               />
             </div>
@@ -140,14 +157,14 @@ export function CreateTransaction({ userId }: CreateTransactionsProps) {
 
             <div className="flex items-center justify-end gap-2">
               <Button
+                type="button"
                 variant="outline"
                 onClick={() => setIsModalOpen(false)}
-                type="button"
               >
-                Cancelar
+                Cencelar
               </Button>
-              <Button disabled={isPending} type="submit">
-                Cadastrar
+              <Button disabled={form.formState.isSubmitting} type="submit">
+                Criar agendamento
               </Button>
             </div>
           </form>

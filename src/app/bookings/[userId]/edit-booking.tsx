@@ -10,15 +10,21 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
-import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
-import { updateTransaction } from '@/services/transactions/update-transaction'
+import { updateBooking } from '@/services/bookings/update-booking'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Edit } from 'lucide-react'
@@ -26,68 +32,93 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
+import dayjs from 'dayjs'
 
-interface EditTransactionProps {
-  transaction: {
-    userId: string
-    transactionName: string
-    isIncome: boolean
+import 'dayjs/locale/pt-br'
+
+import utc from 'dayjs/plugin/utc'
+import { Switch } from '@/components/ui/switch'
+dayjs.locale('pt-br')
+dayjs.extend(utc)
+
+interface EditBookingProps {
+  booking: {
+    title: string
     description: string
+    endDate: Date
+    status: 'schedulling' | 'processing' | 'finished'
     amount: number
+    isIncome: boolean
     id: string
     createdAt: Date
     updatedAt: Date
+    userId: string
   }
 }
 
-const updateTransactionSchema = z.object({
-  transactionName: z.string(),
+const bookingsSchema = z.object({
+  title: z.string().min(1, { message: 'Título é obrigatório.' }),
   amount: z.coerce.number(),
-  description: z.string(),
   isIncome: z.boolean().default(false),
+  description: z
+    .string()
+    .min(5, { message: 'Digite pelo menos 5 caracteres.' }),
+  endDate: z.coerce.date().transform((date) => {
+    return dayjs(date).utc().startOf('day').toDate()
+  }),
+  status: z
+    .enum(['schedulling', 'processing', 'finished'])
+    .default('schedulling'),
 })
 
-type UpdateTransactionDataType = z.infer<typeof updateTransactionSchema>
+type UpdateBookingDataType = z.infer<typeof bookingsSchema>
 
-export function EditTransaction({ transaction }: EditTransactionProps) {
+export function EditBooking({ booking }: EditBookingProps) {
   const [isSheetOpen, setIsSheetOpen] = useState(false)
   const queryClient = useQueryClient()
-  const form = useForm<UpdateTransactionDataType>({
-    resolver: zodResolver(updateTransactionSchema),
+  const form = useForm<UpdateBookingDataType>({
+    resolver: zodResolver(bookingsSchema),
     defaultValues: {
-      transactionName: transaction.transactionName,
-      amount: transaction.amount,
-      description: transaction.description,
-      isIncome: transaction.isIncome,
+      title: booking.title,
+      status: booking.status,
+      amount: booking.amount,
+      isIncome: booking.isIncome ?? false,
+      description: booking.description,
     },
   })
 
-  const { mutateAsync: updateTransactionFn, isPending } = useMutation({
-    mutationFn: updateTransaction,
+  const { mutateAsync: updateBookingFn, isPending } = useMutation({
+    mutationFn: updateBooking,
     onSuccess: () => {
       queryClient.refetchQueries({
-        queryKey: [transaction.userId, 'transactions'],
+        queryKey: [booking.userId, 'bookings'],
         type: 'active',
       })
     },
   })
 
-  async function handleUpdateTransaction(data: UpdateTransactionDataType) {
-    const { transactionName, amount, description, isIncome } = data
+  const today = dayjs().format('YYYY-MM-DD')
 
-    await updateTransactionFn({
-      transactionName,
-      amount,
+  async function handleUpdateBooking(data: UpdateBookingDataType) {
+    const { title, description, endDate, status, amount, isIncome } = data
+
+    const formattedEndDate = new Date(endDate).toISOString().split('T')[0]
+
+    await updateBookingFn({
+      title,
       description,
+      amount,
       isIncome,
-      transactionId: transaction.id,
+      endDate: new Date(formattedEndDate),
+      status,
+      bookingId: booking.id,
     })
       .then(() => {
-        toast.success('Transação cadastrada com sucesso!')
+        toast.success('Agendamento atualizado com sucesso!')
       })
       .catch(() => {
         toast.error(
-          'Houve um erro ao cadastrar a transação, por favor tente novamente mais tarde.',
+          'Houve um erro ao atualizar o agendamento, por favor tente novamente mais tarde.',
         )
       })
       .finally(() => setIsSheetOpen(false))
@@ -106,16 +137,54 @@ export function EditTransaction({ transaction }: EditTransactionProps) {
       </SheetTrigger>
       <SheetContent>
         <SheetHeader>
-          <SheetTitle>Editar dados da transação</SheetTitle>
+          <SheetTitle>Editar dados do agendamento</SheetTitle>
         </SheetHeader>
 
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit(handleUpdateTransaction)}
+            onSubmit={form.handleSubmit(handleUpdateBooking)}
             className="flex flex-col justify-between gap-4"
           >
-            <Label>Nome da transação</Label>
-            <Input {...form.register('transactionName')} />
+            <Label>Título</Label>
+            <Input {...form.register('title')} />
+
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Status</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                    disabled={form.getValues('status') === 'finished'}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o status" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="schedulling">Agendado</SelectItem>
+                      <SelectItem value="processing">
+                        Em processamento
+                      </SelectItem>
+                      <SelectItem value="finished">Finalizado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              )}
+            />
+
+            <Label>Data de entrega</Label>
+            <Input
+              defaultValue={
+                new Date(booking.endDate).toISOString().split('T')[0]
+              }
+              {...form.register('endDate')}
+              type="date"
+              min={today}
+            />
 
             <Label>Valor</Label>
             <div className="flex items-center gap-2 h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm">
@@ -156,9 +225,9 @@ export function EditTransaction({ transaction }: EditTransactionProps) {
               Concluir edição
             </Button>
             <Button
+              type="button"
               variant="outline"
               onClick={() => setIsSheetOpen(false)}
-              type="button"
             >
               Cancelar
             </Button>

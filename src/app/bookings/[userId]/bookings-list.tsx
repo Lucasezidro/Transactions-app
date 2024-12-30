@@ -1,5 +1,6 @@
 'use client'
 
+import { EmptyPage } from '@/components/empty-page'
 import {
   Table,
   TableBody,
@@ -8,26 +9,28 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { getTransactions } from '@/services/transactions/get-transactions'
 import { useQuery } from '@tanstack/react-query'
+import { getBookings } from '@/services/bookings/get-bookings'
 
 import dayjs from 'dayjs'
 import 'dayjs/locale/pt-br'
-import { EditTransaction } from './edit-transaction'
-import { RemoveTransaction } from './remove-transactions'
-import { EmptyPage } from '@/components/empty-page'
-import { TableSkeleton } from '../../components/loading/table-skeleton'
+
+import { EditBooking } from './edit-booking'
+import { RemoveBooking } from './remove-booking'
+import { Badge } from '@/components/ui/badge'
+import { translateStatus } from '@/helpers/status-badge-color'
+import { TableSkeleton } from '@/components/loading/table-skeleton'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Pagination } from '@/components/pagination'
 
 dayjs.locale('pt-br')
 
-interface TransactionsListProps {
+interface BookingsListProps {
   userId: string
 }
 
-export function TransactionsList({ userId }: TransactionsListProps) {
+export function BookingsList({ userId }: BookingsListProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -40,8 +43,8 @@ export function TransactionsList({ userId }: TransactionsListProps) {
   }, [currentPageParam])
 
   const { data, isLoading } = useQuery({
-    queryFn: () => getTransactions(userId),
-    queryKey: [userId, 'transactions'],
+    queryKey: [userId, 'bookings', currentPage],
+    queryFn: () => getBookings(userId, currentPage, itemsPerPage),
   })
 
   const totalPages = Math.ceil((data?.totalCount || 0) / itemsPerPage)
@@ -51,66 +54,66 @@ export function TransactionsList({ userId }: TransactionsListProps) {
     router.push(`?page=${newPage}`)
   }
 
-  if (data?.transactions.length === 0) {
-    return <EmptyPage title="Não há transações cadastradas." />
+  if (data?.bookings.length === 0) {
+    return <EmptyPage title="Não há agendamentos cadastrados." />
   }
 
   return (
     <div>
-      <Table>
+      <Table className="mt-8">
         <TableHeader>
           <TableRow>
-            <TableHead>Nome da transação</TableHead>
+            <TableHead>Titulo</TableHead>
             <TableHead>Data de criação</TableHead>
+            <TableHead>Data da entrega</TableHead>
             <TableHead>Valor</TableHead>
-            <TableHead>Tipo de transação</TableHead>
+            <TableHead>Status</TableHead>
             <TableHead>Descrição</TableHead>
             <TableHead>Ações</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {isLoading && <TableSkeleton />}
-          {data?.transactions
-            .sort(
-              (a, b) =>
-                new Date(a.createdAt).getTime() -
-                new Date(b.createdAt).getTime(),
-            )
-            .map((transaction) => (
-              <TableRow key={transaction.id}>
-                <TableCell>{transaction.transactionName}</TableCell>
+          {data?.bookings.map((booking) => {
+            return (
+              <TableRow key={booking.id}>
+                <TableCell>{booking.title}</TableCell>
                 <TableCell>
-                  {dayjs(transaction.createdAt).format('DD/MM/YYYY')}
+                  {dayjs(booking.createdAt).format('DD/MM/YYYY')}
+                </TableCell>
+                <TableCell>
+                  {dayjs(booking.endDate).format('DD/MM/YYYY')}
                 </TableCell>
                 <TableCell>
                   {new Intl.NumberFormat('pt-BR', {
                     style: 'currency',
                     currency: 'BRL',
-                  }).format(transaction.amount)}
+                  }).format(booking.amount)}
                 </TableCell>
-                <TableCell
-                  data-income={transaction.isIncome}
-                  className="data-[income=true]:text-emerald-600 dark:data-[income=true]:text-emerald-400 data-[income=false]:text-red-500"
-                >
-                  {transaction.isIncome ? 'Entrada' : 'Saída'}
+                <TableCell>
+                  <Badge variant={booking.status}>
+                    {translateStatus[booking.status]}
+                  </Badge>
                 </TableCell>
                 <TableCell className="max-w-[200px] truncate">
-                  {transaction.description}
+                  {booking.description}
                 </TableCell>
                 <TableCell className="space-x-4">
-                  <EditTransaction transaction={transaction} />
-                  <RemoveTransaction
-                    transactionName={transaction.transactionName}
-                    userId={transaction.userId}
-                    transactionId={transaction.id}
+                  <EditBooking booking={booking} />
+                  <RemoveBooking
+                    status={booking.status}
+                    bookingName={booking.title}
+                    userId={booking.userId}
+                    bookingId={booking.id}
                   />
                 </TableCell>
               </TableRow>
-            ))}
+            )
+          })}
         </TableBody>
       </Table>
 
-      {data && data.totalCount > 6 && (
+      {data && data?.totalCount >= 6 && (
         <>
           <Pagination
             currentPage={currentPage}

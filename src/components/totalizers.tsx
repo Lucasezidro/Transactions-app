@@ -2,13 +2,14 @@
 
 import { getTransactions } from '@/services/transactions/get-transactions'
 import { useQuery } from '@tanstack/react-query'
+import { TotalizersSkeleton } from './loading/totalizers-skeleton'
 
 interface TotalizersProps {
   userId: string
 }
 
 export function Totalizers({ userId }: TotalizersProps) {
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryFn: () => getTransactions(userId),
     queryKey: [userId, 'transactions'],
   })
@@ -32,6 +33,8 @@ export function Totalizers({ userId }: TotalizersProps) {
 
     return totals
   }
+
+  if (isLoading) return <TotalizersSkeleton />
 
   return (
     <div className="flex items-center gap-12 mt-16">
