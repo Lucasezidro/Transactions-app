@@ -40,8 +40,8 @@ export function TransactionsList({ userId }: TransactionsListProps) {
   }, [currentPageParam])
 
   const { data, isLoading } = useQuery({
-    queryFn: () => getTransactions(userId),
-    queryKey: [userId, 'transactions'],
+    queryFn: () => getTransactions(userId, currentPage, itemsPerPage),
+    queryKey: [userId, 'transactions', currentPage],
   })
 
   const totalPages = Math.ceil((data?.totalCount || 0) / itemsPerPage)
