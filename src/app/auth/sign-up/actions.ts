@@ -15,11 +15,11 @@ const signUpSchema = z
     password: z
       .string()
       .min(6, { message: 'A senha precisa conter no mínimo 6 caracteres.' }),
-    password_confirmation: z.string(),
+    confirm_password: z.string(),
   })
-  .refine((data) => data.password === data.password_confirmation, {
+  .refine((data) => data.password === data.confirm_password, {
     message: 'As senhas precisam ser iguais.',
-    path: ['password_confirmation'],
+    path: ['confirm_password'],
   })
 
 export async function signUpAction(data: FormData) {

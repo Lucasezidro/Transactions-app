@@ -8,11 +8,13 @@ import { useFormState } from '@/hooks/use-form-state'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { signInAction } from './actions'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { AlertTriangle } from 'lucide-react'
 
 export function SignInForm() {
   const router = useRouter()
 
-  const [{ errors }, handleSubmit, isPending] = useFormState(
+  const [{ errors, success, message }, handleSubmit, isPending] = useFormState(
     signInAction,
     () => {
       router.push('/')
@@ -25,6 +27,18 @@ export function SignInForm() {
         <h1 className="text-xl font-semibold mb-8">
           Faça o login para acessar sua conta!
         </h1>
+
+        {success === false && message && (
+          <Alert variant="destructive">
+            <AlertTriangle className="size-4" />
+            <AlertTitle>Erro ao fazer o login!</AlertTitle>
+            <AlertDescription>
+              <p>
+                Os dados de login estão incorretos, por favor, tente novamente.
+              </p>
+            </AlertDescription>
+          </Alert>
+        )}
 
         <div className="w-full flex flex-col gap-4">
           <Label className="font-semibold" htmlFor="email">

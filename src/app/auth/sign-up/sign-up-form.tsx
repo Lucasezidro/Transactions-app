@@ -8,11 +8,13 @@ import { useFormState } from '@/hooks/use-form-state'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { signUpAction } from './actions'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { AlertTriangle } from 'lucide-react'
 
 export function SignUpForm() {
   const router = useRouter()
 
-  const [{ errors }, handleSubmit, isPending] = useFormState(
+  const [{ errors, success, message }, handleSubmit, isPending] = useFormState(
     signUpAction,
     () => {
       router.push('/auth/sign-in')
@@ -25,6 +27,16 @@ export function SignUpForm() {
         <h1 className="text-xl font-semibold mb-8">
           Crie uma conta para ter acesso a plataforma!
         </h1>
+
+        {success === false && message && (
+          <Alert variant="destructive">
+            <AlertTriangle className="size-4" />
+            <AlertTitle>Houve um erro ao cadastrar a conta.</AlertTitle>
+            <AlertDescription>
+              <p>Por favor, tente novamente mais tarde.</p>
+            </AlertDescription>
+          </Alert>
+        )}
 
         <div className="w-full flex flex-col gap-4">
           <Label className="font-semibold" htmlFor="name">
@@ -74,12 +86,12 @@ export function SignUpForm() {
             </p>
           )}
 
-          <Label htmlFor="password_confirmation">Confirm your Password</Label>
+          <Label htmlFor="confirm_password">Confirme a Senha</Label>
           <Input
-            name="password_confirmation"
+            name="confirm_password"
             type="password"
             placeholder="Confirme a senha"
-            id="password_confirmation"
+            id="confirm_password"
           />
 
           {errors?.confirm_password && (
