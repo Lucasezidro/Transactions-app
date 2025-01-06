@@ -1,14 +1,13 @@
+import { use } from 'react'
 import { BookingsList } from './bookings-list'
 import { CreateBooking } from './create-booking'
 
 interface BookingsProps {
-  params: {
-    userId: string
-  }
+  params: Promise<{ userId: string }>
 }
 
 export default function Bookings({ params }: BookingsProps) {
-  const userId = params.userId
+  const { userId } = use(params)
 
   return (
     <main>
