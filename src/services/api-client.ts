@@ -3,7 +3,7 @@ import { getCookie } from 'cookies-next'
 import { CookiesFn } from 'cookies-next/lib/types'
 
 const api = axios.create({
-  baseURL: 'http://localhost:3333',
+  baseURL: 'https://transactions-api-7iwy.onrender.com',
 })
 
 api.interceptors.request.use(async (config) => {
